@@ -1,8 +1,3 @@
-; Allow http connection, as org.apache.pdfbox/pdfbox has http dependnecies
-(require 'cemerick.pomegranate.aether)
-(cemerick.pomegranate.aether/register-wagon-factory!
- "http" #(org.apache.maven.wagon.providers.http.HttpWagon.))
-
 (defproject orcpub "0.1.0-SNAPSHOT"
   :description "FIXME: write this!"
   :url "http://example.com/FIXME"
@@ -12,11 +7,9 @@
 
   :min-lein-version "2.7.1"
 
-  :repositories [["apache" "http://repository.apache.org/snapshots/"]
-                 ["my.datomic.com" {:url "https://my.datomic.com/repo"
+  :repositories [["my.datomic.com" {:url "https://my.datomic.com/repo"
                                     :username [:gpg :env]
                                     :password [:gpg :env]}]]
-  :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/test.check "0.9.0"]
@@ -39,7 +32,8 @@
                  [re-frame "0.9.0"]
                  [reagent "0.7.0"]
                  [garden "1.3.2"]
-                 [org.apache.pdfbox/pdfbox "2.1.0-20170324.170253-831"]
+                 [org.apache.pdfbox/pdfbox "2.0.15"]
+                 [org.apache.pdfbox/preflight "2.0.15"]     ; for validating PDFs, maybe move elsewhere?
                  [io.pedestal/pedestal.service "0.5.1"]
                  [io.pedestal/pedestal.route "0.5.1"]
                  [io.pedestal/pedestal.jetty "0.5.1"]
