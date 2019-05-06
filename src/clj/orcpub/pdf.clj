@@ -5,16 +5,37 @@
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
             [clojure.java.io :as io])
-  (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDComboBox PDListBox PDRadioButton PDTextField)
-           (org.apache.pdfbox.cos COSName)
+  (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
-           (org.apache.pdfbox.pdmodel.graphics.image PDImageXObject)
-           (java.io ByteArrayOutputStream ByteArrayInputStream)
+           (org.apache.pdfbox.preflight.parser PreflightParser)
+           (org.apache.pdfbox.preflight.exception SyntaxValidationException)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font)
-           (org.eclipse.jetty.server.handler.gzip GzipHandler)
            (javax.imageio ImageIO)
            (java.net URL)))
+
+(defn validate-pdf
+  "Given a PDF file, checks for PDF/A compliance and reports errors.
+
+  Primarily for developer use."
+  [f]
+  (let [parser (PreflightParser. f)
+        result
+        (try
+          (.parse parser)
+          (with-open [document (.getPreflightDocument parser)]
+            (.validate document)
+            (.getResult document))
+          (catch SyntaxValidationException e
+            (.getResult e)))]
+    (if-not result
+      (println "Null result")
+      (if (.isValid result)
+        (println "The file " f " is a valid PDF/A file.")
+        (do
+          (println "The file " f " is not a valid PDF/A file. Errors:")
+          (doall (for [error (.getErrorsList result)]
+                   (println (.getErrorCode error) ": " (.getDetails error)))))))))
 
 (defn load-fonts
   "Loads the fonts for the document. Will contain
@@ -34,27 +55,28 @@
 (defn write-fields! [doc fields flatten font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
-        res (or (.getDefaultResources form) (PDResources.))]
-    (.setNeedAppearances form true)
+        res (or (.getDefaultResources form) (PDResources.))
+        flatten true]
+    #_(.setNeedAppearances form true)
     (.setDefaultResources form res)
     (doseq [[k v] fields]
       (try
         (let [field (.getField form (name k))]
           (when field
-            
+            #_(.setMultiline field true)
             (if (and flatten (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg"))
               ;; this prints out weird boxes
               #_(.setDefaultAppearance field (str COSName/DA "/" (.getName font-name) " " (font-sizes k 8) " Tf 0 0 0 rg")))
             (.setValue
-             field
-             (cond 
-               (instance? PDCheckBox field) (if v "Yes" "Off")
-               (instance? PDTextField field) (str v)
-               :else nil))))
+              field
+              (cond
+                (instance? PDCheckBox field) (if v "Yes" "Off")
+                (instance? PDTextField field) (str v)
+                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (clojure.stacktrace/print-stack-trace e)))))
     (when flatten
-      (.setNeedAppearances form false)
+      #_(.setNeedAppearances form false)
       (.flatten form))))
 
 (defn content-stream [doc page]
